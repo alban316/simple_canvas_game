@@ -1,17 +1,56 @@
+// Game objects
+var hero = {
+	speed: 256 // movement in pixels per second
+};
+var monster = {};
+var monstersCaught = 0;
+var mazeTileSize = 60;
+var mazeDimY = 12; //yields 12:9 is a 4:3 ratio
+var mazeDimX = 9;
+
+
 // Create the canvas
 var canvas = document.createElement("canvas");
 var ctx = canvas.getContext("2d");
-canvas.width = 512;
-canvas.height = 480;
+canvas.width = mazeDimX * mazeTileSize;
+canvas.height = mazeDimY * mazeTileSize;
 document.body.appendChild(canvas);
 
-// Background image
-var bgReady = false;
-var bgImage = new Image();
-bgImage.onload = function () {
-	bgReady = true;
+// Background tiles
+var drawMaze = function() {
+	
+	for (x=0; x < mazeDimX; x++){
+		for(y=0; y < mazeDimY; y++){
+			//indicate when starting drawing a rectangle
+			ctx.beginPath();
+			ctx.rect(x * mazeTileSize, y * mazeTileSize, x * mazeDimX + mazeTileSize, y * mazeDimY + mazeTileSize);
+
+			//fill the rectangle with the selected color
+			//alternate colors in a checkerboard
+			if ((x % 2)^(y %2)) {
+				ctx.fillStyle = "#aaaaaa";
+			}
+			else {
+				ctx.fillStyle = "#bbbbbb";
+			}
+	  
+			ctx.fill();
+
+			//indicating when finished drawing the rectangle
+			ctx.closePath();
+		}
+	}	
+}
+
+
+// Pellets
+var pelletReady = false;
+var pelletImage = new Image();
+pelletImage.onload = function() {
+	pelletReady = true;
 };
-bgImage.src = "images/background.png";
+pelletImage.src = "images/monster.png";
+
 
 // Hero image
 var heroReady = false;
@@ -21,6 +60,17 @@ heroImage.onload = function () {
 };
 heroImage.src = "images/hero.png";
 
+
+// Flame image
+var flameReady = false;
+var flameImage = new Image();
+flameImage.onload = function () {
+	flameReady = true;
+}
+flameImage.src = "images/flame.gif";
+
+
+
 // Monster image
 var monsterReady = false;
 var monsterImage = new Image();
@@ -29,12 +79,7 @@ monsterImage.onload = function () {
 };
 monsterImage.src = "images/monster.png";
 
-// Game objects
-var hero = {
-	speed: 256 // movement in pixels per second
-};
-var monster = {};
-var monstersCaught = 0;
+
 
 // Handle keyboard controls
 var keysDown = {};
@@ -86,10 +131,17 @@ var update = function (modifier) {
 
 // Draw everything
 var render = function () {
+	/*
 	if (bgReady) {
 		ctx.drawImage(bgImage, 0, 0);
 	}
-
+	*/
+	drawMaze();
+	
+	if (flameReady) {
+		ctx.drawImage(flameImage, 15, 15, 30, 30);
+	}
+	
 	if (heroReady) {
 		ctx.drawImage(heroImage, hero.x, hero.y);
 	}
@@ -98,12 +150,14 @@ var render = function () {
 		ctx.drawImage(monsterImage, monster.x, monster.y);
 	}
 
+	/*
 	// Score
 	ctx.fillStyle = "rgb(250, 250, 250)";
 	ctx.font = "24px Helvetica";
 	ctx.textAlign = "left";
 	ctx.textBaseline = "top";
 	ctx.fillText("Goblins caught: " + monstersCaught, 32, 32);
+	*/
 };
 
 // The main game loop
@@ -128,3 +182,39 @@ requestAnimationFrame = w.requestAnimationFrame || w.webkitRequestAnimationFrame
 var then = Date.now();
 reset();
 main();
+
+
+/*
+REFERENCES:
+http://www.williammalone.com/articles/create-html5-canvas-javascript-sprite-animation/
+https://ccrgeek.wordpress.com/graphics/character-sprites/
+
+*/
+
+
+
+/* SAMPLE CODE
+
+// how to use concat
+//myText = myText.concat(x, ",", y, "(", x % 2, ",", y % 2, "); ");
+//myText = myText.concat(x, ",", y, "(", x % 2, ",", y % 2, ")[", (x % 2)^(y %2), "]; ");
+
+
+// Background image
+var bgReady = false;
+var bgImage = new Image();
+bgImage.onload = function () {
+	bgReady = true;
+};
+bgImage.src = "images/background.png";
+
+//draw a white border for the rectangle
+//ctx.strokeStyle = "#000000";
+//ctx.stroke();
+
+// ctx.fillStyle = "#000000";
+// ctx.font = "16px Helvetica";
+// ctx.textAlign = "left";
+// ctx.textBaseline = "top";
+// ctx.fillText(myText, 32, 32);			
+*/
