@@ -5,8 +5,38 @@ var hero = {
 var monster = {};
 var monstersCaught = 0;
 var mazeTileSize = 60;
-var mazeDimY = 12; //yields 12:9 is a 4:3 ratio
-var mazeDimX = 9;
+var mazeDimY = 5; //yields 12:9 is a 4:3 ratio
+var mazeDimX = 5;
+var itemSize = 30;
+var itemPadding = 15;
+var candy = [];
+
+
+// init candy;
+var initCandy = function() {
+    for (x=0; x < mazeDimX; x++){
+        candy[x] = [];
+        
+        for(y=0; y < mazeDimY; y++){
+            /*if ((x !== 0 && y !== 0) &&
+               (x !== mazeDimX && y !== 0) &&
+               (x !== 0 && y !== mazeDimY) &&
+               (x !== mazeDimX && y !== mazeDimY))
+            */
+            if (((x == 0) && (y == 0)) ||
+               ((x == mazeDimX - 1) && (y == 0)) ||
+               ((x == 0) && (y == mazeDimY - 1)) ||
+               ((x == mazeDimX - 1) && (y == mazeDimY - 1)))
+           
+                candy[x][y] = false;
+        
+            else 
+                candy[x][y] = true;
+        }
+    }
+    
+    //candy[3][3] = false;
+};
 
 
 // Create the canvas
@@ -16,31 +46,38 @@ canvas.width = mazeDimX * mazeTileSize;
 canvas.height = mazeDimY * mazeTileSize;
 document.body.appendChild(canvas);
 
+
 // Background tiles
 var drawMaze = function() {
-	
-	for (x=0; x < mazeDimX; x++){
-		for(y=0; y < mazeDimY; y++){
-			//indicate when starting drawing a rectangle
-			ctx.beginPath();
-			ctx.rect(x * mazeTileSize, y * mazeTileSize, x * mazeDimX + mazeTileSize, y * mazeDimY + mazeTileSize);
+    for (x=0; x < mazeDimX; x++){
+        for(y=0; y < mazeDimY; y++){
+            //indicate when starting drawing a rectangle
+            ctx.beginPath();
+            ctx.rect(x * mazeTileSize, y * mazeTileSize, x * mazeDimX + mazeTileSize, y * mazeDimY + mazeTileSize);
 
-			//fill the rectangle with the selected color
-			//alternate colors in a checkerboard
-			if ((x % 2)^(y %2)) {
-				ctx.fillStyle = "#aaaaaa";
-			}
-			else {
-				ctx.fillStyle = "#bbbbbb";
-			}
-	  
-			ctx.fill();
+            //fill the rectangle with the selected color
+            //alternate colors in a checkerboard
+            if ((x % 2)^(y %2)) {
+                    ctx.fillStyle = "#aaaaaa";
+            }
+            else {
+                    ctx.fillStyle = "#bbbbbb";
+            }
 
-			//indicating when finished drawing the rectangle
-			ctx.closePath();
-		}
-	}	
-}
+            ctx.fill();
+            
+            //draw candy while we're here
+            if (candyReady) {
+                if (candy[x][y]) {
+                    ctx.drawImage(candyImage, x * mazeTileSize + itemPadding, y * mazeTileSize + itemPadding, itemSize, itemSize);                  
+                } 
+            }           
+
+            //indicating when finished drawing the rectangle
+            ctx.closePath();
+        }
+    }	
+};
 
 
 // Pellets
@@ -61,23 +98,26 @@ heroImage.onload = function () {
 heroImage.src = "images/hero.png";
 
 
-// Flame image
-var flameReady = false;
-var flameImage = new Image();
-flameImage.onload = function () {
-	flameReady = true;
-}
-flameImage.src = "images/flame.gif";
 
 
 
-// Monster image
+// candy image
+var candyReady = false;
+var candyImage = new Image();
+candyImage.onload = function () {
+    initCandy();
+    candyReady = true;
+};
+candyImage.src = "images/candy.png";
+
+
+// monster image
 var monsterReady = false;
 var monsterImage = new Image();
 monsterImage.onload = function () {
 	monsterReady = true;
 };
-monsterImage.src = "images/monster.png";
+monsterImage.src = "images/phantom.png";
 
 
 
@@ -104,60 +144,48 @@ var reset = function () {
 
 // Update game objects
 var update = function (modifier) {
-	if (38 in keysDown) { // Player holding up
-		hero.y -= hero.speed * modifier;
-	}
-	if (40 in keysDown) { // Player holding down
-		hero.y += hero.speed * modifier;
-	}
-	if (37 in keysDown) { // Player holding left
-		hero.x -= hero.speed * modifier;
-	}
-	if (39 in keysDown) { // Player holding right
-		hero.x += hero.speed * modifier;
-	}
+    if (38 in keysDown) { // Player holding up
+            hero.y -= hero.speed * modifier;
+    }
+    if (40 in keysDown) { // Player holding down
+            hero.y += hero.speed * modifier;
+    }
+    if (37 in keysDown) { // Player holding left
+            hero.x -= hero.speed * modifier;
+    }
+    if (39 in keysDown) { // Player holding right
+            hero.x += hero.speed * modifier;
+    }
 
-	// Are they touching?
-	if (
-		hero.x <= (monster.x + 32)
-		&& monster.x <= (hero.x + 32)
-		&& hero.y <= (monster.y + 32)
-		&& monster.y <= (hero.y + 32)
-	) {
-		++monstersCaught;
-		reset();
-	}
+    // Are they touching?
+    if (
+            hero.x <= (monster.x + 32)
+            && monster.x <= (hero.x + 32)
+            && hero.y <= (monster.y + 32)
+            && monster.y <= (hero.y + 32)
+    ) {
+            ++monstersCaught;
+            reset();
+    }
 };
 
 // Draw everything
 var render = function () {
-	/*
-	if (bgReady) {
-		ctx.drawImage(bgImage, 0, 0);
-	}
-	*/
-	drawMaze();
-	
-	if (flameReady) {
-		ctx.drawImage(flameImage, 15, 15, 30, 30);
-	}
-	
-	if (heroReady) {
-		ctx.drawImage(heroImage, hero.x, hero.y);
-	}
 
-	if (monsterReady) {
-		ctx.drawImage(monsterImage, monster.x, monster.y);
-	}
+    drawMaze();
 
-	/*
-	// Score
-	ctx.fillStyle = "rgb(250, 250, 250)";
-	ctx.font = "24px Helvetica";
-	ctx.textAlign = "left";
-	ctx.textBaseline = "top";
-	ctx.fillText("Goblins caught: " + monstersCaught, 32, 32);
-	*/
+
+
+
+    if (heroReady) {
+            ctx.drawImage(heroImage, hero.x, hero.y);
+    }
+
+    if (monsterReady) {
+            ctx.drawImage(monsterImage, monster.x, monster.y, itemSize, itemSize);
+    }
+
+
 };
 
 // The main game loop
@@ -216,5 +244,31 @@ bgImage.src = "images/background.png";
 // ctx.font = "16px Helvetica";
 // ctx.textAlign = "left";
 // ctx.textBaseline = "top";
-// ctx.fillText(myText, 32, 32);			
+// ctx.fillText(myText, 32, 32);
+            
+// Flame image
+var flameReady = false;
+var flameImage = new Image();
+flameImage.onload = function () {
+	flameReady = true;
+};
+flameImage.src = "images/flame.gif"; 
+            
+//	if (flameReady) {
+//		ctx.drawImage(flameImage, itemPadding, itemPadding, itemSize, itemSize);
+//	}
+    
+    
+
+// Score
+ctx.fillStyle = "rgb(250, 250, 250)";
+ctx.font = "24px Helvetica";
+ctx.textAlign = "left";
+ctx.textBaseline = "top";
+ctx.fillText("Goblins caught: " + monstersCaught, 32, 32);
+
+if (bgReady) {
+        ctx.drawImage(bgImage, 0, 0);
+}
+
 */
