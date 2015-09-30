@@ -8,7 +8,7 @@ var mazeDark = "#484848";
 var mazeLight = "#888888";
 var itemSize = 30;
 var monsterSize = 45;
-var heroSize = 45;
+var heroSize = 40;
 var itemPadding = 15;
 var candy = [];
 var maxFlames = 4;
@@ -16,7 +16,7 @@ var maxGhosts = 1;
 var ghostSpeed = 1;
 var maxDiagonalDistance = Math.sqrt(Math.pow(mazeDimY * mazeTileSize,2) + Math.pow(mazeDimX * mazeTileSize,2));
 var gameOver = true;
-var youWon = false;
+var youWin = false;
 var blinkOn = true;
 var blinkSpeed = 15;
 var elapsed = 0;
@@ -54,10 +54,11 @@ var ghostInstance = [
 // level difficulty settings
 var gameLevel = 0;
 var gameLevelStats = [
-    {"numGhosts":1, "ghostSpeed":1},
-    {"numGhosts":2, "ghostSpeed":1},
-    {"numGhosts":2, "ghostSpeed":2},
-    {"numGhosts":3, "ghostSpeed":1}
+    {"numGhosts":1, "ghostSpeed":1}, //lev 0
+    {"numGhosts":2, "ghostSpeed":1}, //1
+    {"numGhosts":3, "ghostSpeed":1}, //2
+    {"numGhosts":2, "ghostSpeed":2}, //3
+    {"numGhosts":3, "ghostSpeed":2}  //4
     // increment speed by 1 for each level hereafter...
 ];
 
@@ -65,6 +66,16 @@ var gameLevelStats = [
 var initGame = function () {
     hero.x = canvas.width / 2;
     hero.y = canvas.height / 2;
+    
+    if (gameLevel <= 4) {
+        maxGhosts = gameLevelStats[gameLevel].numGhosts;
+        ghostSpeed = gameLevelStats[gameLevel].ghostSpeed;
+    }
+    
+    else {
+        maxGhosts = gameLevelStats[4].numGhosts;
+        ghostSpeed = gameLevel - 2;
+    }
     
     // init ghosts
     for (i=0; i< maxGhosts; i++) {
@@ -155,6 +166,31 @@ function sprite(options) {
     return that;
 };
 
+
+function ghostIdle(gi) {
+    var action = {};
+    
+    minIdleX = Math.round(mazeDimX / 3 * mazeTileSize);
+    maxIdleX = Math.round(mazeDimX / 2 * mazeTileSize * 2);
+    minIdleY = Math.round(mazeDimY / 3 * mazeTileSize);
+    maxIdleY = Math.round(mazeDimY / 2 * mazeTileSize * 2);
+    
+    if (ghostInstance[gi].dx < minIdleX)
+        action.x = 1;
+    
+    else if (ghostInstance[gi].dx > maxIdleX)
+        action.x = -1;
+    
+    if (ghostInstance[gi].dy < minIdleY)
+        action.y = 1;
+    
+    else if (ghostInstance[gi].dy > maxIdleY)
+        action.y = -1;
+    
+    return action;
+};
+
+
 // actionAI
 var actionAI = function(gi) {
     /*
@@ -231,13 +267,20 @@ var actionAI = function(gi) {
     
     } // ...for each lamp flame
 
-    if (relx >= 0)
+    if (relx > 0)
         ghostInstance[gi].isLeft = false;
-    else
+    else 
         ghostInstance[gi].isLeft = true;
+
+    if ((relx == 0 && rely == 0) || gameOver) {
+        var result = ghostIdle(gi);
+        relx = result.x || 1;
+        rely = result.y || 1;
+    }
 
     ghostInstance[gi].dx += relx * ghostSpeed;
     ghostInstance[gi].dy += rely * ghostSpeed;
+
 };
 
 
@@ -249,8 +292,12 @@ var drawMaze = function() {
         for(y=0; y < mazeDimY; y++){
             //indicate when starting drawing a rectangle
             ctx.beginPath();
+            
+            ctx.strokeStyle = "#000000";
+            ctx.strokeRect(x * mazeTileSize, y * mazeTileSize, x * mazeDimX + mazeTileSize, y * mazeDimY + mazeTileSize);
+            
             ctx.rect(x * mazeTileSize, y * mazeTileSize, x * mazeDimX + mazeTileSize, y * mazeDimY + mazeTileSize);
-
+            
             // determine which quadrant we are in 
             if (y >= mazeDimY / 2)
                 quadrant = 2;
@@ -283,7 +330,7 @@ var drawMaze = function() {
     } // ...outer loop
     
     if (candyReady && candyCount == 0)
-        gameOver = true;
+        youWin = true;
 };
 
 
@@ -359,7 +406,18 @@ var heroImage = new Image();
 heroImage.onload = function () {
 	heroReady = true;
 };
-heroImage.src = "images/hero.png";
+heroImage.src = "images/pumpkinsheet.png";
+
+
+// hero sprite
+var heroPumpkin = sprite({
+    context: ctx,
+    width: 800,
+    height: 200,
+    image: heroImage,
+    ticksPerFrame: 15,
+    numberOfFrames: 4
+});
 
 
 // candy image
@@ -407,10 +465,17 @@ var update = function (modifier) {
     
     // start new game
     if (32 in keysDown && gameOver) {
+        gameLevel = 0;
         initGame();
         gameOver = false;
     }
-         
+    
+    if (youWin) {
+        gameLevel++;
+        initGame();
+        youWin = false;
+    }
+    
     if (!gameOver) {        
         hero.y += Math.round(rely * hero.speed * modifier);
         hero.x += Math.round(relx * hero.speed * modifier);
@@ -462,25 +527,26 @@ var render = function () {
     if (flameReady && brazierReady) {
         for (i = 0; i < maxFlames; i++) {
             // draw brazier first
-            ctx.drawImage(brazierImage, flameInstance[i].dx * mazeTileSize + itemPadding, flameInstance[i].dy * mazeTileSize + itemPadding * 1.75, itemSize, itemSize);
+            ctx.drawImage(brazierImage, flameInstance[i].dx * mazeTileSize + itemPadding, flameInstance[i].dy * mazeTileSize + itemPadding * 1.5, itemSize, itemSize);
 
             // now flame, if lit
             if (flameInstance[i].isLit) {
-                flame.render(flameInstance[i].dx * mazeTileSize + itemPadding, flameInstance[i].dy * mazeTileSize + itemPadding, itemSize);
+                flame.render(flameInstance[i].dx * mazeTileSize + itemPadding, flameInstance[i].dy * mazeTileSize + itemPadding * .5, itemSize);
                 flame.update();   
             }
         }
     }
 
     if (heroReady) {
-        ctx.drawImage(heroImage, hero.x, hero.y, heroSize, heroSize);
+        //ctx.drawImage(heroImage, hero.x, hero.y, heroSize, heroSize);
+        heroPumpkin.render(hero.x, hero.y, heroSize, heroSize);
+        heroPumpkin.update();
     }
-
 
     if (monsterReady && leftMonsterReady) {
         for (i = 0; i < maxGhosts; i++) {
             actionAI(i);
-            //ctx.drawImage(monsterImage, ghostInstance[i].dx, ghostInstance[i].dy, itemSize, itemSize);
+            
             if (ghostInstance[i].isLeft) {
                 leftGhost.render(ghostInstance[i].dx, ghostInstance[i].dy, monsterSize);
                 leftGhost.update();
