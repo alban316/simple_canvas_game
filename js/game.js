@@ -1,6 +1,5 @@
 // Game objects
 var monster = {};
-//var monstersCaught = 0;
 var mazeTileSize = 60;
 var mazeDimY = 10; //yields 12:9 is a 4:3 ratio
 var mazeDimX = 8;
@@ -12,7 +11,7 @@ var heroSize = 40;
 var itemPadding = 15;
 var candy = [];
 var maxFlames = 4;
-var maxGhosts = 1;
+var maxGhosts = 3;
 var ghostSpeed = 1;
 var maxDiagonalDistance = Math.sqrt(Math.pow(mazeDimY * mazeTileSize,2) + Math.pow(mazeDimX * mazeTileSize,2));
 var gameOver = true;
@@ -45,10 +44,10 @@ var ghostDefault = [
     {"dx":(mazeDimX / 4) * mazeTileSize, "dy":(mazeDimY / 4) * 3 * mazeTileSize} // lower left
 ];
 var ghostInstance = [
-    {"dx":ghostDefault[0].dx, "dy":ghostDefault[0].dy, "isLeft":false}, 
-    {"dx":ghostDefault[1].dx, "dy":ghostDefault[1].dy, "isLeft":true},
-    {"dx":ghostDefault[2].dx, "dy":ghostDefault[2].dy, "isLeft":true},
-    {"dx":ghostDefault[3].dx, "dy":ghostDefault[3].dy, "isLeft":false}    
+    {"dx":ghostDefault[0].dx, "dy":ghostDefault[0].dy, "isLeft":false, "goingTo":-1}, 
+    {"dx":ghostDefault[1].dx, "dy":ghostDefault[1].dy, "isLeft":true, "goingTo":-1},
+    {"dx":ghostDefault[2].dx, "dy":ghostDefault[2].dy, "isLeft":true, "goingTo":-1},
+    {"dx":ghostDefault[3].dx, "dy":ghostDefault[3].dy, "isLeft":false, "goingTo":-1}    
 ];
 
 // level difficulty settings
@@ -56,9 +55,9 @@ var gameLevel = 0;
 var gameLevelStats = [
     {"numGhosts":1, "ghostSpeed":1}, //lev 0
     {"numGhosts":2, "ghostSpeed":1}, //1
-    {"numGhosts":3, "ghostSpeed":1}, //2
-    {"numGhosts":2, "ghostSpeed":2}, //3
-    {"numGhosts":3, "ghostSpeed":2}  //4
+    {"numGhosts":2, "ghostSpeed":1.5}, //2
+    {"numGhosts":3, "ghostSpeed":1}, //3
+    {"numGhosts":3, "ghostSpeed":1.5}  //4
     // increment speed by 1 for each level hereafter...
 ];
 
@@ -76,11 +75,11 @@ var initGame = function () {
         maxGhosts = gameLevelStats[4].numGhosts;
         ghostSpeed = gameLevel - 2;
     }
-    
+	
     // init ghosts
     for (i=0; i< maxGhosts; i++) {
-        ghostInstance[i].dx = ghostDefault[0].dx;
-        ghostInstance[i].dy = ghostDefault[0].dy;
+        ghostInstance[i].dx = ghostDefault[i].dx;
+        ghostInstance[i].dy = ghostDefault[i].dy;
     }
     
     // init flames
@@ -112,7 +111,6 @@ var initCandy = function() {
         }
     }
 };
-
 
 
 // Create the canvas
@@ -166,28 +164,60 @@ function sprite(options) {
     return that;
 };
 
+// followIdlePattern
+var ghostIdle = function(gi) {
+				
+	var relx = 0;
+    var rely = 0;			
+	var minY = Math.round(mazeDimY / 3 * mazeTileSize);
+	var minX = Math.round(mazeDimX / 3 * mazeTileSize);				
+	var maxY = Math.round(mazeDimY / 3 * mazeTileSize * 2);
+	var maxX = Math.round(mazeDimX / 3 * mazeTileSize * 2);
+	var midY = Math.round(mazeDimY / 2 * mazeTileSize);
+	var midX = Math.round(mazeDimX / 2 * mazeTileSize);
+	var dx = ghostInstance[gi].dx;
+	var dy = ghostInstance[gi].dy;
+	
+	if (dy < midY && dx >= midX) {// upper right
+		// move right & down
+		if (dy < maxY)
+			rely = 1;
+		
+		if (dx < maxX)
+			relx = 1;
+		
+	} else if (dy >= midY && dx >= midX) {// lower right
+		// move down & left
+		if (dy < maxY)
+			rely = 1;
+		
+		if (dx > minX)
+			relx = -1;
+	
+	} else if (dy >= midY && dx < midX) { //lower left
+		// move left & up
+		if (dy > minY)
+			rely = -1;
+		
+		if (dx > minX)
+			relx = -1;
+	
+	} else if (dy < midY && dx < midX) { //upper left
+		// move right & up
+		if (dy > minY)
+			rely = -1;
+		
+		if (dx < maxX)
+			relx = 1;
+	}
+						
+	if (relx > 0)
+        ghostInstance[gi].isLeft = false;
+    else 
+        ghostInstance[gi].isLeft = true;
 
-function ghostIdle(gi) {
-    var action = {};
-    
-    minIdleX = Math.round(mazeDimX / 3 * mazeTileSize);
-    maxIdleX = Math.round(mazeDimX / 2 * mazeTileSize * 2);
-    minIdleY = Math.round(mazeDimY / 3 * mazeTileSize);
-    maxIdleY = Math.round(mazeDimY / 2 * mazeTileSize * 2);
-    
-    if (ghostInstance[gi].dx < minIdleX)
-        action.x = 1;
-    
-    else if (ghostInstance[gi].dx > maxIdleX)
-        action.x = -1;
-    
-    if (ghostInstance[gi].dy < minIdleY)
-        action.y = 1;
-    
-    else if (ghostInstance[gi].dy > maxIdleY)
-        action.y = -1;
-    
-    return action;
+    ghostInstance[gi].dx += Math.round(relx * ghostSpeed);
+    ghostInstance[gi].dy += Math.round(rely * ghostSpeed);
 };
 
 
@@ -197,9 +227,6 @@ var actionAI = function(gi) {
      * Question: which lit lamp is closest to me, and how do I get there?
      * 
      */
- 
-    //to do: Add a ghost Idle motion, for GameOver & when there's no action
- 
     var shortDistance = maxDiagonalDistance;
     var nearestFlame = -1;
     var relx = 0;
@@ -219,13 +246,16 @@ var actionAI = function(gi) {
         // collision?
         if (mydist < itemSize) {
             flameInstance[f].isLit = false;
+			ghostInstance[gi].goingTo = -1;
             
+			
             if (!flameInstance[0].isLit &&
                 !flameInstance[1].isLit &&
                 !flameInstance[2].isLit &&
                 !flameInstance[3].isLit)
             
                 gameOver = true;
+			
         }
 
         // is this the shortest distance so far & is it lit?
@@ -241,7 +271,10 @@ var actionAI = function(gi) {
                     ydist = Math.abs(ghostInstance[g].dy - flamePx.dy);
                     var hisdist = Math.sqrt(Math.pow(xdist,2) + Math.pow(ydist,2));
                     
-                    if (hisdist < mydist) {
+					// compare distances AND whether or not he is already going to a lamp
+                    //if ((hisdist < mydist) && (!ghostInstance[g].isEngaged)) {
+					if ((hisdist < mydist) && ghostInstance[g].goingTo == f){
+					
                         somebodyElseCloser = true;
                     }
                 }
@@ -249,6 +282,7 @@ var actionAI = function(gi) {
             
             // if nobody is closer, then I'll go here
             if (!somebodyElseCloser) {
+				ghostInstance[gi].goingTo = f;
                 shortDistance = mydist;
                 nearestFlame = f;  
                 
@@ -262,24 +296,28 @@ var actionAI = function(gi) {
                 else if (flamePx.dy > ghostInstance[gi].dy)
                     rely = 1;
             }
-            
+			
+			else { // I have nothing to do, so I'll follow idle pattern
+				ghostInstance[gi].goingTo = -1;
+
+			} // ...if nobody's closer than me
+					
         } // ...if this is closest & it's lit
     
     } // ...for each lamp flame
 
-    if (relx > 0)
-        ghostInstance[gi].isLeft = false;
-    else 
-        ghostInstance[gi].isLeft = true;
+	if (ghostInstance[gi].goingTo == -1)
+		ghostIdle(gi);
+	
+	else {
+		if (relx > 0)
+			ghostInstance[gi].isLeft = false;
+		else 
+			ghostInstance[gi].isLeft = true;
 
-    if ((relx == 0 && rely == 0) || gameOver) {
-        var result = ghostIdle(gi);
-        relx = result.x || 1;
-        rely = result.y || 1;
-    }
-
-    ghostInstance[gi].dx += relx * ghostSpeed;
-    ghostInstance[gi].dy += rely * ghostSpeed;
+    ghostInstance[gi].dx += Math.round(relx * ghostSpeed);
+    ghostInstance[gi].dy += Math.round(rely * ghostSpeed);
+	}
 
 };
 
@@ -582,11 +620,15 @@ var render = function () {
     }
 
 
-    ctx.fillStyle = "rgb(250, 250, 250)";
-    ctx.font = "24px Helvetica";
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-//    ctx.fillText("Hero(x,y):" + hero.x + "," + hero.y, 32, 32);
+    // ctx.fillStyle = "rgb(250, 250, 250)";
+    // ctx.font = "24px Helvetica";
+    // ctx.textAlign = "left";
+    // ctx.textBaseline = "top";
+	// ctx.fillText("Ghost 0:" + ghostInstance[0].goingTo + " Loc:" + ghostInstance[0].dx + "," + ghostInstance[0].dy, 32, 32);
+	// ctx.fillText("Ghost 1:" + ghostInstance[1].goingTo + " Loc:" + ghostInstance[1].dx + "," + ghostInstance[1].dy, 32, 64);
+	// ctx.fillText("Ghost 2:" + ghostInstance[2].goingTo + " Loc:" + ghostInstance[2].dx + "," + ghostInstance[2].dy, 32, 96);
+	// ctx.fillText("Ghost 3:" + ghostInstance[3].goingTo + " Loc:" + ghostInstance[3].dx + "," + ghostInstance[3].dy, 32, 128);	
+	//	ctx.fillText("Level:" + gameLevel, 32, 32);
 //    ctx.fillText("Dimensions(x,y): " + mazeDimX * mazeTileSize + "," + mazeDimY * mazeTileSize, 32, 64);
 //    ctx.fillText("Elapsed:" + elapsed, 32, 32);
 
@@ -604,27 +646,7 @@ var main = function () {
 
     // Request to do this again ASAP
     requestAnimationFrame(main);
-    
-    
-    
-    /*
-     * 
-     * instructions on screen
-     * click/press to begin
-     * level n
-     * game over
-     * OR happy halloween you win
-     * click/press to continue
-     * 
-     * 
-     * Use Arrows To Move
-     * Collect All The Candy To Win
-     * Ghosts Will Turn Off Lamps
-     * Touch Lamps to Relight
-     * If All Lights are Off, You Lose
-     * 
-     * 
-     */
+
 };
 
 // Cross-browser support for requestAnimationFrame
